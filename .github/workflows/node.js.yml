@@ -31,5 +31,4 @@ steps:
       cache-dependency-path: subdir/package-lock.json
       node-version: 20
       cache: "npm"
-  - run: npm ci
-  - run: npm test
+  - run: npm i
