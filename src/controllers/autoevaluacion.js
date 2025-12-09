@@ -1,17 +1,16 @@
 const { getConnection } = require("../database/connection");
 
 const createAutoevaluacion = async (req, res) => {
+  let conn;
+
   try {
     console.log("Crear Autoevaluacion con datos:", JSON.stringify(req.body, null, 2));
 
     const { result } = req.body;
-    const conn = await getConnection();
+    conn = await getConnection();
 
     const añoActual = new Date().getFullYear();
 
-    // --------------------------------------------------------------
-    // 1. VALIDAR SI YA EXISTE LA AUTOEVALUACIÓN DEL MISMO AÑO
-    // --------------------------------------------------------------
     const [exists] = await conn.query(
       `SELECT id FROM resultados 
        WHERE cedula = ? 
@@ -19,19 +18,20 @@ const createAutoevaluacion = async (req, res) => {
        AND año = ? 
        AND evaluado = ?
        LIMIT 1`,
-      [result.cedula, result.evaluacion, añoActual, result.evaluacion == "Auto" ? result.cedula : result.evaluatedId]
+      [
+        result.cedula,
+        result.evaluacion,
+        añoActual,
+        result.evaluacion == "Auto" ? result.cedula : result.evaluatedId
+      ]
     );
 
     if (exists.length > 0) {
-      conn.release();
       return res.status(409).json({
         error: `El usuario ya tiene una evaluación registrada para el año ${añoActual}`
       });
     }
 
-    // --------------------------------------------------------------
-    // 2. Obtener datos del empleado
-    // --------------------------------------------------------------
     const [empRows] = await conn.query(
       `SELECT nombres, apellidos, cargo, sede, empresa 
        FROM empleados
@@ -40,15 +40,11 @@ const createAutoevaluacion = async (req, res) => {
     );
 
     if (empRows.length === 0) {
-      conn.release();
       return res.status(404).json({ error: "Empleado no encontrado" });
     }
 
     const empleado = empRows[0];
 
-    // --------------------------------------------------------------
-    // 3. Mapeo de competencias
-    // --------------------------------------------------------------
     const getRating = (id) =>
       result.starResponses.find((r) => r.questionId === id)?.rating || 0;
 
@@ -64,9 +60,6 @@ const createAutoevaluacion = async (req, res) => {
     const comp_e4 = getRating("comp_esp4");
     const comp_e5 = getRating("comp_esp5");
 
-    // --------------------------------------------------------------
-    // 4. Preguntas abiertas
-    // --------------------------------------------------------------
     const objetivo1 = result.freeResponses[0]?.text || "";
     const objetivo2 = result.freeResponses[1]?.text || "";
     const objetivo3 = result.freeResponses[2]?.text || "";
@@ -77,9 +70,6 @@ const createAutoevaluacion = async (req, res) => {
     const cal3 = result.freeResponses[2]?.score || 0;
     const cal4 = result.freeResponses[3]?.score || 0;
 
-    // --------------------------------------------------------------
-    // 5. INSERT NUEVA AUTOEVALUACIÓN
-    // --------------------------------------------------------------
     await conn.query(
       `INSERT INTO resultados
         (nombre, cargo, sede, empresa, evaluacion, evaluado,
@@ -88,7 +78,7 @@ const createAutoevaluacion = async (req, res) => {
         comp_e1, comp_e2, comp_e3, comp_e4, comp_e5, obs_comp_esp, estado, cedula, año)
       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);`,
       [
-        empleado.nombres + " " + empleado.apellidos,
+        `${empleado.nombres} ${empleado.apellidos}`,
         empleado.cargo,
         empleado.sede,
         empleado.empresa,
@@ -120,14 +110,16 @@ const createAutoevaluacion = async (req, res) => {
       ]
     );
 
-    conn.release();
     res.status(201).json({ message: "Autoevaluación creada exitosamente" });
 
   } catch (error) {
     console.error("Error createAutoevaluacion:", error);
     res.status(500).json({ error: "Error al crear la autoevaluación" });
+  } finally {
+    if (conn) conn.release(); // 🔥 SIEMPRE
   }
 };
+
 
 module.exports = {
   createAutoevaluacion

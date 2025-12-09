@@ -4,12 +4,14 @@ const  bcrypt = require('bcrypt')
 
 
 async function loginUser(req, res) {
-
   console.log("Login attempt with data:", req.body);
     
   const { email, password } = req.body;
 
-    const conn = await getConnection();
+  let conn;
+
+  try {
+    conn = await getConnection();
 
     // Obtener login + UEN del empleado
     const [rows] = await conn.query(`
@@ -29,7 +31,6 @@ async function loginUser(req, res) {
 
     // Verificar contraseña
     const passwordCheck = await bcrypt.compare(password, user.password_hash);
-
     if (!passwordCheck) {
       return res.status(401).send({ error: 'usuario no encontrado' });
     }
@@ -39,22 +40,19 @@ async function loginUser(req, res) {
       return res.status(403).send({ error: 'usuario inactivo' });
     }
 
-   
-
     // Generar token
     jwt.sign({ username: user.cedula }, 'secret_key', (err, token) => {
       if (err) {
         return res.status(400).send({ error: 'jwt error' });
       }
 
-      // Respuesta final
       res.send({
         token,
         user: {
           username: user.cedula,
           role: user.rol,
-          uen: user.uen,  // 👈 AQUI VA LA UEN
-          mf: user.mf,   // 👈 AQUI VA LA MF
+          uen: user.uen,
+          mf: user.mf,
           nombres: user.nombres,
           apellidos: user.apellidos,
           cargo: user.cargo,
@@ -62,19 +60,27 @@ async function loginUser(req, res) {
       });
     });
 
-  
+  } catch (err) {
+    console.error("Login error:", err);
+    res.status(500).send({ error: 'error interno del servidor' });
+  } finally {
+    if (conn) conn.release(); // Liberación garantizada
+  }
 }
 
 
+
 async function registerUser(req, res) {
-    console.log("Registering user:", req.body);
+  console.log("Registering user:", req.body);
     
   const { name, username, password, role } = req.body;
 
-  try {
-    const conn = await getConnection();
+  let conn; // importante declarar afuera
 
-    // Validar si el usuario o correo ya existen
+  try {
+    conn = await getConnection();
+
+    // Validar si el usuario ya existe
     const [existing] = await conn.query(
       'SELECT * FROM users WHERE username = ?',
       [username]
@@ -84,11 +90,10 @@ async function registerUser(req, res) {
       return res.status(409).send({ error: 'Usuario o correo ya existe' });
     }
 
-    // Hashear contraseña
-    const saltRounds = 12;
-    const passwordHash = await bcrypt.hash(password, saltRounds);
+    // Hash password
+    const passwordHash = await bcrypt.hash(password, 12);
 
-    // Insertar nuevo usuario
+    // Insertar usuario
     await conn.query(
       `INSERT INTO users (name, username, password_hash, role)
        VALUES (?, ?, ?, ?)`,
@@ -96,12 +101,15 @@ async function registerUser(req, res) {
     );
 
     res.status(201).send({ message: 'Usuario registrado exitosamente' });
-    conn.release();
+
   } catch (err) {
     console.error('Error en registro:', err);
     res.status(500).send({ error: 'Error interno del servidor' });
+  } finally {
+    if (conn) conn.release(); // 🔥 siempre se ejecuta
   }
 }
+
 
 
 module.exports= {

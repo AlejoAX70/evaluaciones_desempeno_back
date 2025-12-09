@@ -1,21 +1,30 @@
 const { getConnection, sql } = require("../database/connection");
 
 const getEmpleados = async (req, res) => {
+  let conn;
+
   try {
-    const conn = await getConnection();
+    conn = await getConnection();
+
     const [emp] = await conn.query(
       `SELECT * FROM bf1noykqymg7gd1tuvpc.empleados;`
     );
-    res.status(201).send({ emp });
-    conn.release();
+
+    res.status(200).send({ emp });
+
   } catch (error) {
-    console.error("Error en registro:", err);
+    console.error("Error en getEmpleados:", error);
     res.status(500).send({ error: "Error interno del servidor" });
+
+  } finally {
+    if (conn) conn.release();
   }
 };
 
 const createEmpleado = async (req, res) => {
   console.log("CrearEmpleado: ", req.body);
+
+  let conn; // <-- importante para poder liberarla en finally
 
   try {
     const {
@@ -51,7 +60,8 @@ const createEmpleado = async (req, res) => {
 
     const emptyFields = Object.entries(requiredFields)
       .filter(
-        ([key, value]) => value === undefined || value === null || value === ""
+        ([key, value]) =>
+          value === undefined || value === null || value === ""
       )
       .map(([key]) => key);
 
@@ -69,7 +79,7 @@ const createEmpleado = async (req, res) => {
         .send({ error: "La cédula debe ser un número válido" });
     }
 
-    const conn = await getConnection();
+    conn = await getConnection();
 
     // 1️⃣ Validar si ya existe un empleado con esa cédula
     const [exists] = await conn.query(
@@ -78,7 +88,6 @@ const createEmpleado = async (req, res) => {
     );
 
     if (exists.length > 0) {
-      conn.release();
       return res
         .status(400)
         .send({ error: "Ya existe un empleado con esa cédula" });
@@ -105,17 +114,22 @@ const createEmpleado = async (req, res) => {
       ]
     );
 
-    conn.release();
-    return res.status(201).send({ message: "Empleado creado exitosamente" });
+    return res.status(201).send({
+      message: "Empleado creado exitosamente",
+    });
+
   } catch (err) {
     console.error("Error en creación de empleado:", err);
-    return res.status(500).send({ error: "Error interno del servidor" });
+    return res.status(500).send({
+      error: "Error interno del servidor",
+    });
+
+  } finally {
+    if (conn) conn.release(); // <-- SIEMPRE se libera
   }
 };
 
 const editEmpleado = async (req, res) => {
-  // Implementación de edición de empleado
-
   try {
     const {
       nombres,
@@ -149,11 +163,11 @@ const editEmpleado = async (req, res) => {
       nombre_par,
       cc_par,
     };
+
     const emptyFields = Object.entries(requiredFields)
-      .filter(
-        ([key, value]) => value === undefined || value === null || value === ""
-      )
+      .filter(([key, value]) => value === undefined || value === null || value === "")
       .map(([key]) => key);
+
     if (emptyFields.length > 0) {
       return res.status(400).send({
         error: "Campos obligatorios vacíos",
@@ -161,7 +175,7 @@ const editEmpleado = async (req, res) => {
       });
     }
 
-    const conn = await getConnection();
+    let conn = await getConnection();
 
     await conn.query(
       `UPDATE bf1noykqymg7gd1tuvpc.empleados
@@ -183,15 +197,17 @@ const editEmpleado = async (req, res) => {
         cedula_anterior,
       ]
     );
-    conn.release();
-    return res
-      .status(200)
-      .send({ message: "Empleado actualizado exitosamente" });
+
+    return res.status(200).send({ message: "Empleado actualizado exitosamente" });
+
   } catch (error) {
     console.error("Error en edición de empleado:", error);
     return res.status(500).send({ error: "Error interno del servidor" });
+  } finally {
+    if (conn) conn.release();
   }
 };
+
 
 module.exports = {
   getEmpleados,

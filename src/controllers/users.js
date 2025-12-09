@@ -2,21 +2,32 @@ const { getConnection, sql } = require("../database/connection");
 const bcrypt = require("bcrypt");
 
 const getAllLogins = async (req, res) => {
+  let conn;
+
   try {
-    const conn = await getConnection();
+    conn = await getConnection();
+
     const [logins] = await conn.query(
-        `SELECT cedula, rol, estado, creado_en, actualizado_en FROM bf1noykqymg7gd1tuvpc.login;`
+      `SELECT cedula, rol, estado, creado_en, actualizado_en 
+       FROM bf1noykqymg7gd1tuvpc.login;`
     );
-    res.status(201).send({ logins });
-    conn.release();
+
+    return res.status(200).send({ logins });
+
   } catch (error) {
-    console.error("Error en registro:", err);
-    res.status(500).send({ error: "Error interno del servidor" });
+    console.error("Error en registro:", error);
+    return res.status(500).send({ error: "Error interno del servidor" });
+
+  } finally {
+    if (conn) conn.release(); // ⬅️ cierre garantizado siempre
   }
 };
 
+
 const createUser = async (req, res) => {
-  console.log("CrearUsuario: ", req.body);  
+  console.log("CrearUsuario: ", req.body);
+
+  let conn;
 
   try {
     const {
@@ -39,29 +50,35 @@ const createUser = async (req, res) => {
       });
     }
 
-    const conn = await getConnection();
+    conn = await getConnection();
 
     // 1️⃣ Encriptar contraseña
     const hashedPassword = await bcrypt.hash(password_hash, 12);
 
     // 2️⃣ Insertar usuario
     await conn.query(
-      `INSERT INTO bf1noykqymg7gd1tuvpc.login (cedula, rol, estado, password_hash) VALUES (?, ?, ?, ?)`,
+      `INSERT INTO bf1noykqymg7gd1tuvpc.login (cedula, rol, estado, password_hash) 
+       VALUES (?, ?, ?, ?)`,
       [cedula, rol, estado, hashedPassword]
     );
 
-    res.status(201).send({ message: "Usuario creado exitosamente" });
-    conn.release();
+    return res.status(201).send({ message: "Usuario creado exitosamente" });
 
   } catch (error) {
     console.error("Error en creación de usuario:", error);
-    res.status(500).send({ error: "Error interno del servidor" });
+    return res.status(500).send({ error: "Error interno del servidor" });
+
+  } finally {
+    if (conn) conn.release(); // ⬅️ cierre garantizado SIEMPRE
   }
 };
 
 
+
 const editUser = async (req, res) => {
-  console.log("EditarUsuario: ", req.body);  
+  console.log("EditarUsuario: ", req.body);
+
+  let conn;
 
   try { 
     const {
@@ -84,7 +101,7 @@ const editUser = async (req, res) => {
       });
     }
 
-    const conn = await getConnection();
+    conn = await getConnection();
 
     // 1️⃣ Construir UPDATE dinámico
     let query = `UPDATE bf1noykqymg7gd1tuvpc.login SET rol = ?, estado = ?`;
@@ -103,14 +120,17 @@ const editUser = async (req, res) => {
     // 3️⃣ Ejecutar UPDATE
     await conn.query(query, params);
 
-    res.status(201).send({ message: "Usuario actualizado exitosamente" });
-    conn.release();
-    
+    return res.status(200).send({ message: "Usuario actualizado exitosamente" });
+
   } catch (error) {
     console.error("Error en edición de usuario:", error);
-    res.status(500).send({ error: "Error interno del servidor" });
+    return res.status(500).send({ error: "Error interno del servidor" });
+
+  } finally {
+    if (conn) conn.release(); // ⬅️ cierre garantizado SIEMPRE
   }
 };
+
 
 module.exports = {
   getAllLogins,

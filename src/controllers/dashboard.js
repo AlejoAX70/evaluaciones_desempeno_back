@@ -4,26 +4,28 @@ async function InitialData(req, res) {
   console.log("Initial Data: ", req.body);
 
   const { cedula, uen } = req.body;
-  const conn = await getConnection();
+  let conn;
 
   try {
-    // 1️⃣ Obtener el último año disponible
+    conn = await getConnection();
+
+    // 1️⃣ OBTENER EL ÚLTIMO AÑO DISPONIBLE
     const [rows] = await conn.query(
       `SELECT MAX(año) AS ultimo_anio
-       FROM bf1noykqymg7gd1tuvpc.resultados`,
-      [cedula]
+       FROM bf1noykqymg7gd1tuvpc.resultados`
     );
 
     const ultimoAnio = rows[0]?.ultimo_anio;
 
-    // Obtener datos del empleado SIEMPRE
+    // OBTENER DATOS DEL EMPLEADO SIEMPRE
     const [empleadoData] = await conn.query(
       `SELECT cedula, nombres, cargo, sede, empresa, uen 
-   FROM bf1noykqymg7gd1tuvpc.empleados
-   WHERE cedula = ?`,
+       FROM bf1noykqymg7gd1tuvpc.empleados
+       WHERE cedula = ?`,
       [cedula]
     );
 
+    // Cantidad de veces que LO han evaluado (Par / Líder)
     const [countEvaluado] = await conn.query(
       `SELECT COUNT(*) AS total_evaluado
        FROM bf1noykqymg7gd1tuvpc.resultados
@@ -35,6 +37,7 @@ async function InitialData(req, res) {
 
     const totalEvaluado = countEvaluado[0].total_evaluado;
 
+    // Cantidad de evaluaciones que ÉL ha realizado
     const [countCedula] = await conn.query(
       `SELECT COUNT(*) AS total_realizadas
        FROM bf1noykqymg7gd1tuvpc.resultados
@@ -47,9 +50,8 @@ async function InitialData(req, res) {
 
     console.log("totalRealizadas: ", totalRealizadas);
     console.log("totalEvaluado: ", totalEvaluado);
-    
 
-    // Si no tiene evaluaciones, retornar igual estructura con datos básicos
+    // SI NO TIENE NINGUNA EVALUACIÓN AÚN
     if (!ultimoAnio) {
       return res.json({
         success: true,
@@ -62,19 +64,13 @@ async function InitialData(req, res) {
             resultado_final: 0,
           },
         ],
-        totalEvaluado: totalEvaluado,
-        totalRealizadas: totalRealizadas,
+        totalEvaluado,
+        totalRealizadas,
         año: ultimoAnio,
       });
     }
 
-    // 2️⃣ CUÁNTAS EVALUACIONES LE HAN HECHO (evaluado)
-    
-
-    // 3️⃣ CUÁNTAS EVALUACIONES HA REALIZADO (cedula)
-    
-
-    // 4️⃣ Consulta principal filtrando por UEN y por CÉDULA
+    // CONSULTA PRINCIPAL FILTRANDO POR UEN Y CÉDULA
     const [data] = await conn.query(
       `
       SELECT 
@@ -126,6 +122,7 @@ async function InitialData(req, res) {
       [ultimoAnio, ultimoAnio, uen, cedula]
     );
 
+    // SI NO HAY REGISTROS, DEVOLVER DATOS BÁSICOS
     if (data.length === 0) {
       return res.json({
         success: true,
@@ -142,15 +139,17 @@ async function InitialData(req, res) {
         totalRealizadas,
         año: ultimoAnio,
       });
-    } else {
-      res.status(200).json({
-        success: true,
-        calificacion: data,
-        totalEvaluado, // evaluaciones que LE hicieron
-        totalRealizadas, // evaluaciones que ÉL hizo
-        año: ultimoAnio,
-      });
     }
+
+    // RESPUESTA NORMAL
+    res.status(200).json({
+      success: true,
+      calificacion: data,
+      totalEvaluado,
+      totalRealizadas,
+      año: ultimoAnio,
+    });
+
   } catch (error) {
     console.error("Error en InitialData:", error);
     res.status(500).json({
@@ -158,9 +157,10 @@ async function InitialData(req, res) {
       message: "Error al obtener los datos iniciales.",
     });
   } finally {
-    conn.release();
+    if (conn) conn.release();
   }
 }
+
 
 module.exports = {
   InitialData,

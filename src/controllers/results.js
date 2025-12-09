@@ -1,20 +1,30 @@
 const { getConnection } = require("../database/connection");
 
-const getAllresults = async (req, res) =>{ 
-   try {
-    const conn = await getConnection();
+const getAllresults = async (req, res) => { 
+  let conn;
+
+  try {
+    conn = await getConnection();
+
     const [resultados] = await conn.query(
       `SELECT * FROM bf1noykqymg7gd1tuvpc.resultados;`
     );
-    res.status(201).send({ resultados });
-    conn.release();
+
+    return res.status(200).send({ resultados });
+
   } catch (error) {
     console.error("Error en registro:", error);
-    res.status(500).send({ error: "Error interno del servidor" });
+    return res.status(500).send({ error: "Error interno del servidor" });
+
+  } finally {
+    if (conn) conn.release(); // ⬅️ cierre seguro siempre
   }
-}
+};
+
 
 const deleteResult = async (req, res) => {
+  let conn;
+
   try {
     const { id } = req.params;
 
@@ -23,7 +33,7 @@ const deleteResult = async (req, res) => {
       return res.status(400).send({ error: "El ID es obligatorio" });
     }
 
-    const conn = await getConnection();
+    conn = await getConnection();
 
     // Ejecutar DELETE
     const [resultado] = await conn.query(
@@ -31,20 +41,22 @@ const deleteResult = async (req, res) => {
       [id]
     );
 
-    conn.release();
-
     // Revisar si realmente se eliminó algo
     if (resultado.affectedRows === 0) {
       return res.status(404).send({ error: "Resultado no encontrado" });
     }
 
-    res.status(200).send({ message: "Resultado eliminado exitosamente" });
+    return res.status(200).send({ message: "Resultado eliminado exitosamente" });
 
   } catch (error) {
     console.error("Error al eliminar:", error);
-    res.status(500).send({ error: "Error interno del servidor" });
+    return res.status(500).send({ error: "Error interno del servidor" });
+
+  } finally {
+    if (conn) conn.release(); // ⬅️ cierre garantizado SIEMPRE
   }
 };
+
 
 
 module.exports = {
