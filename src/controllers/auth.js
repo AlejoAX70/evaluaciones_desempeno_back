@@ -9,7 +9,6 @@ async function loginUser(req, res) {
     
   const { email, password } = req.body;
 
-  try {
     const conn = await getConnection();
 
     // Obtener login + UEN del empleado
@@ -63,10 +62,7 @@ async function loginUser(req, res) {
       });
     });
 
-  } catch (err) {
-    console.error('Login error:', err);
-    res.status(500).send({ error: 'error interno del servidor' });
-  }
+  
 }
 
 
