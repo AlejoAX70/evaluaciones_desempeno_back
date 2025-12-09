@@ -2,8 +2,8 @@ const mysql = require('mysql2/promise');
 
 const dbSettings = {
   host: 'localhost',
-  user: 'root',
-  password: 'Comino22@',
+  user: 'evaluaciones',
+  password: 'Cardinal0809*_',
   database: 'bf1noykqymg7gd1tuvpc',
   waitForConnections: true,
   connectionLimit: 10,
